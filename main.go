@@ -12,7 +12,7 @@ func main(){
 	log.Println(records)
 
 	// Sending email
-	util.SendBulkEmail()
+	util.SendBulkEmail(records)
 	
 	
 }
