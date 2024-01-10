@@ -12,7 +12,7 @@ type User struct{
 	Email string
 }
 
-func ExtractCsv(filePath string) [][]string {
+func ExtractCsv(filePath string) []User {
 	// Open the file
 	csvfile, err := os.Open(filePath)
 	if err != nil {
@@ -26,8 +26,17 @@ func ExtractCsv(filePath string) [][]string {
 		fmt.Println(err)
 	}
 	
-	for _, record := range records {
-		fmt.Println(record)
+	var users []User
+
+	for i, record := range records {
+		user := User{
+			Name: record[0],
+			Email: record[1],
+		}
+		if i==0{
+			continue
+		}
+		users = append(users, user)
 	}
-	return records
+	return users
 }
