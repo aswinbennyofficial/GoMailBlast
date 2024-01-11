@@ -8,17 +8,18 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	qrcode "github.com/skip2/go-qrcode"
+	"github.com/skip2/go-qrcode"
+	//"strings"
 )
 
 func SendBulkEmail(userList []User) {
-	// Load environment variables
+	// Loading environment variables
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatalf("Error loading environment variables file")
 	}
 
-	// SMTP server credentials from .env file
+	// SMTP server Credentials from .env file
 	SMTP_USERNAME := os.Getenv("SMTP_USERNAME")
 	SMTP_PASSWORD := os.Getenv("SMTP_PASSWORD")
 	SMTP_HOST := os.Getenv("SMTP_HOST")
@@ -37,40 +38,50 @@ func SendBulkEmail(userList []User) {
 
 	for _, user := range userList {
 		// Generate QR code
-		qrCode, err := generateQRCode("iudshgiugigfisigfisiugiug")
+		qrCode, err := generateQRCode(user.Name)
 		if err != nil {
 			log.Println("Error generating QR code:", err)
 			continue
 		}
 
-		// Mail
-		subject := "Test Golang Email Sender 2"
-		body := "<html><body><h1>Hi " + user.Name + "</h1><br>This is an HTML-rich email template!<br>Join fast</body></html>"
+		// Convert QR code to PNG
+		pngData, err := convertQRCodeToPNG(qrCode)
+		if err != nil {
+			log.Println("Error converting QR code to PNG:", err)
+			continue
+		}
 
-		var msg []byte
-		msg = []byte(
+		// Create email body
+		subject := "Test Golang Email Sender"
+		body := fmt.Sprintf("<html><body><h1>Hi %s,</h1> <br>this is an HTML-rich email template!<br><img src=\"cid:qrcode\"></body></html>", user.Name)
+
+		// Create MIME email with embedded image
+		msg := []byte(
 			"From: " + FROM_EMAIL + "\r\n" +
 				"Reply-To: " + REPLY_TO + "\r\n" +
 				"Subject: " + subject + "\r\n" +
-				"MIME-version: 1.0;\nContent-Type: multipart/mixed; boundary=foo;\r\n\r\n" +
-				"--foo\r\n" +
-				"Content-Type: text/html; charset=\"UTF-8\"\r\n" +
+				"MIME-version: 1.0;\nContent-Type: multipart/related; boundary=\"related_boundary\";\r\n" +
+				"\r\n" +
+				"--related_boundary\r\n" +
+				"Content-Type: text/html; charset=\"UTF-8\";\r\n" +
 				"\r\n" +
 				body + "\r\n" +
-				"--foo\r\n" +
-				"Content-Type: image/png\r\n" +
+				"--related_boundary\r\n" +
+				"Content-Type: image/png; name=\"qrcode.png\"\r\n" +
+				"Content-Disposition: inline; filename=\"qrcode.png\"\r\n" +
+				"Content-ID: <qrcode>\r\n" +
 				"Content-Transfer-Encoding: base64\r\n" +
-				"Content-Disposition: attachment; filename=\"qr-code.png\"\r\n" +
 				"\r\n" +
-				qrCode + "\r\n" +
-				"--foo--\r\n")
+				pngData + "\r\n" +
+				"--related_boundary--")
 
+		// Recipient email
 		recieverEmail := []string{user.Email}
 
 		// Send the mail
 		err = smtp.SendMail(SMTP_HOST+":"+SMTP_PORT, auth, FROM_EMAIL, recieverEmail, msg)
 
-		// Handling the errors
+		// Handle errors
 		if err != nil {
 			log.Println(err)
 			continue
@@ -80,11 +91,23 @@ func SendBulkEmail(userList []User) {
 	fmt.Println("Successfully sent mail to all users in the list")
 }
 
-func generateQRCode(data string) (string, error) {
-	// Generate QR code and return it as a base64-encoded string
-	qrCode, err := qrcode.Encode(data, qrcode.Medium, 256)
+func generateQRCode(data string) (*qrcode.QRCode, error) {
+	qrCode, err := qrcode.New(data, qrcode.Medium)
+	if err != nil {
+		return nil, err
+	}
+	return qrCode, nil
+}
+
+func convertQRCodeToPNG(qrCode *qrcode.QRCode) (string, error) {
+	// Create a new PNG image from the QR code
+	pngData, err := qrCode.PNG(256)
 	if err != nil {
 		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(qrCode), nil
+
+	// Encode the PNG image to base64
+	pngBase64 := base64.StdEncoding.EncodeToString(pngData)
+
+	return pngBase64, nil
 }
